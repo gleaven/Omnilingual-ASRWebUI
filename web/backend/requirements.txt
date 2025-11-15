@@ -1,0 +1,44 @@
+# Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+websockets==12.0
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# Task Queue
+celery==5.3.4
+redis==5.0.1
+
+# Audio Processing
+pydub==0.25.1
+ffmpeg-python==0.2.0
+numpy==1.24.3
+scipy==1.11.4
+soundfile==0.12.1
+librosa==0.10.1
+torch>=2.0.0
+torchaudio>=2.0.0
+
+# Translation
+transformers>=4.30.0
+sentencepiece>=0.1.99
+protobuf>=3.20.0
+langdetect>=1.0.9
+
+# YouTube Download
+yt-dlp>=2024.11.0  # Use latest version to avoid 403 errors
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+aiofiles==23.2.1
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Monitoring
+prometheus-client==0.19.0

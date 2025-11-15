@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Omnilingual ASR - Web Transcription</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1a202c;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+            background: #1a202c;
+            color: #e2e8f0;
+        }
+
+        .upload-section {
+            background: #2d3748;
+            border: 2px dashed #4a5568;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s;
+        }
+
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #374151;
+        }
+
+        .upload-section.dragover {
+            border-color: #667eea;
+            background: #3b4f72;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: #48bb78;
+        }
+
+        .btn-secondary:hover {
+            background: #38a169;
+        }
+
+        .youtube-section {
+            margin-top: 20px;
+            padding: 20px;
+            background: #2d3748;
+            border-radius: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #4a5568;
+            border-radius: 6px;
+            font-size: 1em;
+            background: #374151;
+            color: #e2e8f0;
+        }
+
+        .settings-section {
+            background: #2d3748;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #e2e8f0;
+        }
+
+        .form-group select,
+        .form-group input {
+            padding: 10px;
+            border: 2px solid #4a5568;
+            border-radius: 6px;
+            font-size: 1em;
+            background: #374151;
+            color: #e2e8f0;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        .jobs-section {
+            margin-top: 30px;
+        }
+
+        .job-card {
+            background: #2d3748;
+            border: 2px solid #4a5568;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+        }
+
+        .job-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            border-color: #667eea;
+        }
+
+        .job-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .job-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: #e2e8f0;
+        }
+
+        .job-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+        }
+
+        .status-queued {
+            background: #fef5e7;
+            color: #d68910;
+        }
+
+        .status-processing {
+            background: #ebf8ff;
+            color: #2c5282;
+        }
+
+        .status-completed {
+            background: #f0fff4;
+            color: #22543d;
+        }
+
+        .status-failed {
+            background: #fff5f5;
+            color: #c53030;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #4a5568;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .btn-danger {
+            background: #e53e3e;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c53030;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.85em;
+        }
+
+        .job-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .job-actions button {
+            flex: 1;
+        }
+
+        .transcription-view {
+            margin-top: 20px;
+            padding: 20px;
+            background: #374151;
+            border-radius: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .segment {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #2d3748;
+            border-left: 4px solid #667eea;
+            border-radius: 6px;
+        }
+
+        .segment-header {
+            font-size: 0.9em;
+            color: #a0aec0;
+            margin-bottom: 8px;
+        }
+
+        .segment-text {
+            color: #e2e8f0;
+            line-height: 1.6;
+        }
+
+        .speaker-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #667eea;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+
+        .export-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+        }
+
+        .alert-error {
+            background: #4a2020;
+            border: 2px solid #fc8181;
+            color: #fc8181;
+        }
+
+        .alert-success {
+            background: #1f4529;
+            border: 2px solid #9ae6b4;
+            color: #9ae6b4;
+        }
+
+        .alert-info {
+            background: #1e3a5f;
+            border: 2px solid #90cdf4;
+            color: #90cdf4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 Omnilingual ASR</h1>
+            <p>Advanced Multilingual Speech Recognition</p>
+        </div>
+
+        <div class="content">
+            <!-- Alert Messages -->
+            <div id="alertContainer"></div>
+
+            <!-- Upload Section -->
+            <div class="upload-section" id="dropZone">
+                <div class="upload-icon">📁</div>
+                <h2>Upload Audio File</h2>
+                <p>Drag and drop your audio file here, or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept="audio/*,video/*">
+                <button class="btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+                <p style="margin-top: 15px; color: #718096;">
+                    Supported: MP3, WAV, M4A, FLAC, OGG, MP4, WEBM, and more
+                </p>
+            </div>
+
+            <!-- YouTube Section -->
+            <div class="youtube-section">
+                <h3>🎬 Or Extract from YouTube</h3>
+                <div class="input-group">
+                    <input type="text" id="youtubeUrl" placeholder="Paste YouTube URL here...">
+                    <button class="btn btn-secondary" onclick="extractYouTube()">Extract Audio</button>
+                </div>
+            </div>
+
+            <!-- Transcription Settings -->
+            <div class="settings-section" id="settingsSection">
+                <h3>⚙️ Transcription Settings</h3>
+                <div id="uploadedFileInfo" class="hidden" style="background: #e6f2ff; padding: 15px; border-radius: 6px; margin-bottom: 15px;">
+                    <p style="margin: 0; color: #2c5282;"><strong>📄 File Ready:</strong> <span id="fileName"></span></p>
+                    <p style="margin: 5px 0 0 0; font-size: 0.9em; color: #4a5568;">Duration: <span id="fileDuration"></span>s | Audio ID: <span id="fileAudioId"></span></p>
+                </div>
+                <div class="settings-grid">
+                    <div class="form-group">
+                        <label>Model</label>
+                        <select id="modelSelect">
+                            <option value="LLM_7B">LLM 7B (Best Quality)</option>
+                            <option value="LLM_3B">LLM 3B (Balanced)</option>
+                            <option value="LLM_1B">LLM 1B (Fast)</option>
+                            <option value="CTC_1B" selected>CTC 1B (Fastest)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Language Hint (Optional)</label>
+                        <input type="text" id="languageHint" placeholder="e.g., eng, spa, fra">
+                    </div>
+                    <div class="form-group">
+                        <label>Translate To</label>
+                        <select id="targetLanguage">
+                            <option value="eng" selected>English</option>
+                            <option value="spa">Spanish</option>
+                            <option value="fra">French</option>
+                            <option value="deu">German</option>
+                            <option value="ita">Italian</option>
+                            <option value="por">Portuguese</option>
+                            <option value="rus">Russian</option>
+                            <option value="jpn">Japanese</option>
+                            <option value="kor">Korean</option>
+                            <option value="zho">Chinese</option>
+                            <option value="ara">Arabic</option>
+                            <option value="hin">Hindi</option>
+                            <option value="tur">Turkish</option>
+                            <option value="vie">Vietnamese</option>
+                            <option value="pol">Polish</option>
+                            <option value="nld">Dutch</option>
+                            <option value="swe">Swedish</option>
+                            <option value="ind">Indonesian</option>
+                            <option value="tha">Thai</option>
+                            <option value="ukr">Ukrainian</option>
+                        </select>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="enableDiarization">
+                        <label for="enableDiarization">Identify Speakers</label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="enableTranslation" checked>
+                        <label for="enableTranslation">Enable Translation</label>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn" id="startTranscriptionBtn" onclick="startTranscriptionManual()" disabled style="font-size: 1.1em; padding: 15px 40px;">
+                        🚀 Start Transcription
+                    </button>
+                </div>
+            </div>
+
+            <!-- Current Jobs -->
+            <div class="jobs-section">
+                <h3>📊 Transcription Jobs</h3>
+                <div id="jobsContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Use relative URL since nginx proxies /api to backend
+        const API_BASE = '/api';
+        let currentAudioId = null;
+        let jobPollingIntervals = {};
+
+        // File upload handling
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        async function handleFileUpload(file) {
+            showAlert('Uploading file...', 'info');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_BASE}/audio/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+
+                const data = await response.json();
+                currentAudioId = data.id;
+
+                showAlert(`File uploaded successfully! Duration: ${data.duration_seconds?.toFixed(2)}s`, 'success');
+
+                // Show file info and enable start button
+                document.getElementById('uploadedFileInfo').classList.remove('hidden');
+                document.getElementById('fileName').textContent = data.original_filename || file.name;
+                document.getElementById('fileDuration').textContent = data.duration_seconds?.toFixed(2);
+                document.getElementById('fileAudioId').textContent = data.id;
+                document.getElementById('startTranscriptionBtn').disabled = false;
+
+            } catch (error) {
+                showAlert(`Upload failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function extractYouTube() {
+            const url = document.getElementById('youtubeUrl').value.trim();
+            if (!url) {
+                showAlert('Please enter a YouTube URL', 'error');
+                return;
+            }
+
+            showAlert('Extracting audio from YouTube...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/youtube/extract`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url})
+                });
+
+                if (!response.ok) throw new Error('YouTube extraction failed');
+
+                const data = await response.json();
+                currentAudioId = data.id;
+
+                showAlert(`YouTube audio extracted! Duration: ${data.duration_seconds?.toFixed(2)}s`, 'success');
+
+                // Show file info and enable start button
+                document.getElementById('uploadedFileInfo').classList.remove('hidden');
+                document.getElementById('fileName').textContent = data.title || 'YouTube Audio';
+                document.getElementById('fileDuration').textContent = data.duration_seconds?.toFixed(2);
+                document.getElementById('fileAudioId').textContent = data.id;
+                document.getElementById('startTranscriptionBtn').disabled = false;
+
+            } catch (error) {
+                showAlert(`YouTube extraction failed: ${error.message}`, 'error');
+            }
+        }
+
+        function startTranscriptionManual() {
+            if (!currentAudioId) {
+                showAlert('Please upload a file first', 'error');
+                return;
+            }
+            startTranscription(currentAudioId);
+            // Disable button after starting
+            document.getElementById('startTranscriptionBtn').disabled = true;
+        }
+
+        async function startTranscription(audioId) {
+            const model = document.getElementById('modelSelect').value;
+            const languageHint = document.getElementById('languageHint').value.trim() || null;
+            const enableDiarization = document.getElementById('enableDiarization').checked;
+            const enableTranslation = document.getElementById('enableTranslation').checked;
+            const targetLanguage = document.getElementById('targetLanguage').value;
+
+            showAlert('Starting transcription...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/transcribe`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        audio_id: audioId,
+                        model: model,
+                        language_hint: languageHint,
+                        enable_diarization: enableDiarization,
+                        enable_translation: enableTranslation,
+                        target_language: targetLanguage,
+                        chunk_duration: 30
+                    })
+                });
+
+                if (!response.ok) throw new Error('Transcription start failed');
+
+                const data = await response.json();
+
+                showAlert('Transcription job started!', 'success');
+
+                // Start polling for this job
+                pollJobStatus(data.job_id);
+
+            } catch (error) {
+                showAlert(`Transcription failed: ${error.message}`, 'error');
+                // Re-enable button on error
+                document.getElementById('startTranscriptionBtn').disabled = false;
+            }
+        }
+
+        function pollJobStatus(jobId) {
+            // Clear existing interval if any
+            if (jobPollingIntervals[jobId]) {
+                clearInterval(jobPollingIntervals[jobId]);
+            }
+
+            // Poll every 2 seconds
+            jobPollingIntervals[jobId] = setInterval(async () => {
+                try {
+                    const response = await fetch(`${API_BASE}/jobs/${jobId}`);
+                    const data = await response.json();
+
+                    updateJobCard(data);
+
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        clearInterval(jobPollingIntervals[jobId]);
+
+                        if (data.status === 'completed') {
+                            loadTranscriptionResult(jobId);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Polling error:', error);
+                }
+            }, 2000);
+
+            // Initial update
+            fetch(`${API_BASE}/jobs/${jobId}`)
+                .then(r => r.json())
+                .then(data => updateJobCard(data));
+        }
+
+        function updateJobCard(job) {
+            const container = document.getElementById('jobsContainer');
+            let card = document.getElementById(`job-${job.job_id}`);
+
+            if (!card) {
+                card = document.createElement('div');
+                card.id = `job-${job.job_id}`;
+                card.className = 'job-card';
+                container.insertBefore(card, container.firstChild);
+            }
+
+            const statusClass = `status-${job.status}`;
+
+            card.innerHTML = `
+                <div class="job-header">
+                    <div class="job-title">Job #${job.job_id}</div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div class="job-status ${statusClass}">${job.status.toUpperCase()}</div>
+                        <button class="btn btn-danger btn-small" onclick="deleteJob(${job.job_id})">🗑️ Delete</button>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: ${job.progress}%"></div>
+                </div>
+                <p style="margin-top: 10px; color: #a0aec0;">${job.current_step || 'Waiting...'}</p>
+                <p style="font-size: 0.9em; color: #718096;">Progress: ${job.progress.toFixed(1)}%</p>
+                <div id="result-${job.job_id}"></div>
+            `;
+        }
+
+        async function loadTranscriptionResult(jobId) {
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/result`);
+                const data = await response.json();
+
+                const resultDiv = document.getElementById(`result-${jobId}`);
+
+                // Build language info with prominent display
+                const sourceLang = data.detected_languages.length > 0
+                    ? `${data.detected_languages[0].name} (${data.detected_languages[0].code.toUpperCase()})`
+                    : 'Unknown';
+                const targetLang = data.translation_enabled && data.target_language
+                    ? data.target_language.toUpperCase()
+                    : null;
+
+                let html = `
+                    <div class="transcription-view">
+                        <h4>📝 Transcription Result</h4>
+
+                        <div style="background: #4a5568; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <p style="margin: 5px 0;"><strong>🗣️ Original Language:</strong> <span style="color: #90cdf4; font-size: 1.1em;">${sourceLang}</span></p>
+                            ${targetLang ? `<p style="margin: 5px 0;"><strong>🌐 Translated to:</strong> <span style="color: #9ae6b4; font-size: 1.1em;">${targetLang}</span></p>` : ''}
+                            <p style="margin: 5px 0;"><strong>👥 Speakers:</strong> ${data.speakers.length}</p>
+                            <p style="margin: 5px 0;"><strong>⏱️ Processing Time:</strong> ${data.processing_time?.toFixed(2)}s</p>
+                        </div>
+
+                        <div class="export-section">
+                            <button class="btn" onclick="exportTranscription(${jobId}, 'txt')">Export TXT</button>
+                            <button class="btn" onclick="exportTranscription(${jobId}, 'json')">Export JSON</button>
+                            <button class="btn" onclick="exportTranscription(${jobId}, 'srt')">Export SRT</button>
+                            <button class="btn" onclick="exportTranscription(${jobId}, 'vtt')">Export VTT</button>
+                            <button class="btn" onclick="exportTranscription(${jobId}, 'csv')">Export CSV</button>
+                        </div>
+
+                        <hr style="margin: 20px 0; border-color: #4a5568;">
+                `;
+
+                data.segments.forEach(seg => {
+                    html += `
+                        <div class="segment">
+                            <div class="segment-header">
+                                ${seg.speaker_label ? `<span class="speaker-tag">${seg.speaker_label}</span>` : ''}
+                                <span style="color: #a0aec0;">${formatTime(seg.start_time)} - ${formatTime(seg.end_time)}</span>
+                            </div>
+                            <div class="segment-text">
+                                ${seg.translated_text
+                                    ? `<div style="margin-bottom: 10px;">
+                                         <strong style="color: #90cdf4;">Original (${sourceLang.split('(')[0].trim()}):</strong><br>
+                                         <span style="color: #cbd5e0;">${seg.text}</span>
+                                       </div>
+                                       <div style="padding-left: 10px; border-left: 3px solid #667eea;">
+                                         <strong style="color: #9ae6b4;">Translation (${targetLang}):</strong><br>
+                                         <span style="color: #e2e8f0; font-size: 1.05em;">${seg.translated_text}</span>
+                                       </div>`
+                                    : `<span style="color: #e2e8f0;">${seg.text}</span>`
+                                }
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += '</div>';
+                resultDiv.innerHTML = html;
+
+            } catch (error) {
+                showAlert(`Failed to load result: ${error.message}`, 'error');
+            }
+        }
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        async function deleteJob(jobId) {
+            if (!confirm(`Are you sure you want to delete job #${jobId}? This cannot be undone.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // Remove the job card from the UI
+                    const card = document.getElementById(`job-${jobId}`);
+                    if (card) {
+                        card.remove();
+                    }
+                    showAlert(`Job #${jobId} deleted successfully`, 'success');
+                } else {
+                    const error = await response.json();
+                    showAlert(`Failed to delete job: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Failed to delete job: ${error.message}`, 'error');
+            }
+        }
+
+        async function exportTranscription(jobId, format) {
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/export?format=${format}`);
+                const blob = await response.blob();
+
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `transcription_${jobId}.${format}`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+
+                showAlert(`Exported as ${format.toUpperCase()}`, 'success');
+            } catch (error) {
+                showAlert(`Export failed: ${error.message}`, 'error');
+            }
+        }
+
+        function showAlert(message, type) {
+            const container = document.getElementById('alertContainer');
+            const alert = document.createElement('div');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+
+            container.appendChild(alert);
+
+            setTimeout(() => {
+                alert.remove();
+            }, 5000);
+        }
+
+        // Load existing jobs on page load
+        async function loadJobs() {
+            try {
+                const response = await fetch(`${API_BASE}/jobs?limit=10`);
+                const data = await response.json();
+
+                data.items.forEach(job => {
+                    const jobData = {
+                        job_id: job.job_id,
+                        status: job.status,
+                        progress: job.progress,
+                        current_step: `Model: ${job.model_name}`
+                    };
+                    updateJobCard(jobData);
+
+                    // Continue polling active jobs
+                    if (job.status === 'processing' || job.status === 'queued') {
+                        pollJobStatus(job.job_id);
+                    } else if (job.status === 'completed') {
+                        loadTranscriptionResult(job.job_id);
+                    }
+                });
+            } catch (error) {
+                console.error('Failed to load jobs:', error);
+            }
+        }
+
+        // Initialize
+        loadJobs();
+    </script>
+</body>
+</html>

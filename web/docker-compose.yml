@@ -1,0 +1,115 @@
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    container_name: omniasr_db
+    environment:
+      POSTGRES_DB: omniasr
+      POSTGRES_USER: omniasr
+      POSTGRES_PASSWORD: omniasr
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omniasr"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: omniasr_redis
+    # No external port - only accessible internally
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Web Server
+  web:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: omniasr_web
+    # No external port - only accessible via nginx proxy
+    environment:
+      - DATABASE_URL=postgresql://omniasr:omniasr@db:5432/omniasr
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_PATH=/app/storage
+      - DEVICE=cuda  # GPU enabled (falls back to CPU if unavailable)
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - storage_data:/app/storage
+      - model_cache:/root/.cache/fairseq2
+      - ../repo:/app/repo  # Mount the ASR repo
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      sh -c "pip install -e /app/repo[arrow] &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8123 --reload"
+
+  # Celery Worker
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: omniasr_worker
+    environment:
+      - DATABASE_URL=postgresql://omniasr:omniasr@db:5432/omniasr
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - STORAGE_PATH=/app/storage
+      - DEVICE=cuda  # GPU enabled (falls back to CPU if unavailable)
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - storage_data:/app/storage
+      - model_cache:/root/.cache/fairseq2
+      - ../repo:/app/repo  # Mount the ASR repo
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: >
+      sh -c "pip install -e /app/repo[arrow] &&
+             celery -A app.tasks.celery_app worker --loglevel=info --concurrency=2"
+
+  # Frontend (Nginx)
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    container_name: omniasr_frontend
+    ports:
+      - "8123:80"
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  storage_data:
+  model_cache:
