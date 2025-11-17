@@ -17,8 +17,10 @@ sys.path.insert(0, str(repo_path))
 
 try:
     from omnilingual_asr.models.inference.pipeline import ASRInferencePipeline
+    from omnilingual_asr.models.wav2vec2_llama.model import Wav2Vec2LlamaBeamSearchConfig
 except ImportError:
     ASRInferencePipeline = None
+    Wav2Vec2LlamaBeamSearchConfig = None
 
 
 class ASRService:
@@ -79,14 +81,98 @@ class ASRService:
         }
         torch_dtype = dtype_map.get(self.dtype, torch.float32)
 
+        # Configure beam search with more aggressive repetition detection
+        # for LLM models to prevent repetition loops
+        beam_search_config = None
+        if 'LLM' in self.model_name and Wav2Vec2LlamaBeamSearchConfig is not None:
+            beam_search_config = Wav2Vec2LlamaBeamSearchConfig(
+                nbest=1,
+                length_norm=False,
+                # More aggressive compression detection to prevent repetition loops
+                compression_window=50,  # Smaller window (default: 100)
+                compression_threshold=2.5,  # Lower threshold = more sensitive (default: 4.0)
+            )
+
         # Initialize pipeline
         pipeline = ASRInferencePipeline(
             model_card=full_model_name,
             device=self.device,
-            dtype=torch_dtype
+            dtype=torch_dtype,
+            beam_search_config=beam_search_config,
         )
 
         return pipeline
+
+    @staticmethod
+    def _clean_repetitions(text: str, max_repeats: int = 3) -> str:
+        """
+        Clean up repetitive phrases in transcription output.
+
+        LLM-based models can sometimes get stuck in loops, generating the same
+        phrase over and over. This detects and cleans up such patterns.
+
+        Args:
+            text: Input text that may contain repetitions
+            max_repeats: Maximum number of times a phrase should appear consecutively
+
+        Returns:
+            Cleaned text with repetitions removed
+        """
+        if not text or len(text) < 10:
+            return text
+
+        # Split into words for word-level repetition detection
+        words = text.split()
+        if len(words) < 6:
+            return text
+
+        # Try to find repeated patterns of different lengths (2-10 words)
+        cleaned = False
+        for pattern_len in range(2, min(11, len(words) // 3)):
+            i = 0
+            new_words = []
+            while i < len(words):
+                # Check if we have a repeating pattern starting at position i
+                pattern = words[i:i + pattern_len]
+                if len(pattern) < pattern_len:
+                    new_words.extend(words[i:])
+                    break
+
+                # Count how many times this pattern repeats
+                repeat_count = 1
+                j = i + pattern_len
+                while j + pattern_len <= len(words):
+                    if words[j:j + pattern_len] == pattern:
+                        repeat_count += 1
+                        j += pattern_len
+                    else:
+                        break
+
+                # If too many repeats, limit them
+                if repeat_count > max_repeats:
+                    # Keep only max_repeats occurrences
+                    for _ in range(max_repeats):
+                        new_words.extend(pattern)
+                    i = j
+                    cleaned = True
+                else:
+                    new_words.append(words[i])
+                    i += 1
+
+            if cleaned:
+                words = new_words
+                cleaned = False  # Reset for next pattern length
+
+        result = ' '.join(words)
+
+        # Also check for character-level repetitions (rare but possible)
+        # This catches cases like "...المتحدة المتحدة المتحدة..."
+        import re
+        # Find phrases repeated more than max_repeats times
+        result = re.sub(r'(\b\S+(?:\s+\S+){0,5}?\s*)(\1){' + str(max_repeats) + r',}',
+                       r'\1' * max_repeats, result)
+
+        return result.strip()
 
     def transcribe(
         self,
@@ -127,11 +213,14 @@ class ASRService:
             # For single audio, return first result
             if not isinstance(audio, (list, tuple)):
                 if isinstance(results, list) and len(results) > 0:
-                    return results[0]
-                return str(results)
+                    result = results[0]
+                else:
+                    result = str(results)
+                # Clean up any repetition loops
+                return self._clean_repetitions(result)
 
-            # For batch, return all results
-            return results
+            # For batch, return all results (cleaned)
+            return [self._clean_repetitions(r) for r in results]
 
         except Exception as e:
             raise Exception(f"Transcription failed: {str(e)}")
@@ -162,7 +251,8 @@ class ASRService:
                 lang=lang_list,
                 batch_size=batch_size
             )
-            return results
+            # Clean up any repetition loops in results
+            return [self._clean_repetitions(r) for r in results]
 
         except Exception as e:
             raise Exception(f"Batch transcription failed: {str(e)}")
