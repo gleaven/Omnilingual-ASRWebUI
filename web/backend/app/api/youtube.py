@@ -53,9 +53,27 @@ def extract_youtube_audio(
         # Check if already exists
         existing_file = db.query(AudioFile).filter(AudioFile.checksum == checksum).first()
         if existing_file:
-            # Clean up downloaded file
-            audio_path.unlink()
-            return existing_file
+            # Check if the file paths are the same (same YouTube video re-downloaded)
+            if str(audio_path) == existing_file.file_path:
+                # Same path means we just re-downloaded to the same location
+                # Update the record to ensure metadata is current, keep the file
+                existing_file.file_size = audio_path.stat().st_size
+                db.commit()
+                db.refresh(existing_file)
+                return existing_file
+            # Verify the existing file still exists on disk
+            elif Path(existing_file.file_path).exists():
+                # Clean up downloaded file since we have a valid duplicate
+                audio_path.unlink()
+                return existing_file
+            else:
+                # Old record exists but file is missing, update the record with new file
+                existing_file.file_path = str(audio_path)
+                existing_file.filename = audio_path.name
+                existing_file.file_size = audio_path.stat().st_size
+                db.commit()
+                db.refresh(existing_file)
+                return existing_file
 
         # Get audio info
         audio_info = audio_processor.get_audio_info(str(audio_path))
